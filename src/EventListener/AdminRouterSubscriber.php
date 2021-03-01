@@ -5,6 +5,7 @@ namespace EasyCorp\Bundle\EasyAdminBundle\EventListener;
 use EasyCorp\Bundle\EasyAdminBundle\Config\Option\EA;
 use EasyCorp\Bundle\EasyAdminBundle\Contracts\Controller\CrudControllerInterface;
 use EasyCorp\Bundle\EasyAdminBundle\Contracts\Controller\DashboardControllerInterface;
+use EasyCorp\Bundle\EasyAdminBundle\Contracts\Controller\WithDashboardInterface;
 use EasyCorp\Bundle\EasyAdminBundle\Factory\AdminContextFactory;
 use EasyCorp\Bundle\EasyAdminBundle\Factory\ControllerFactory;
 use EasyCorp\Bundle\EasyAdminBundle\Registry\CrudControllerRegistry;
@@ -208,7 +209,16 @@ class AdminRouterSubscriber implements EventSubscriberInterface
             throw new \InvalidArgumentException('The type of the _controller request attribute is not supported (it must be a string, an array or an object).');
         }
 
-        return is_subclass_of($controllerFqcn, DashboardControllerInterface::class) ? $controllerFqcn : null;
+        if (is_subclass_of($controllerFqcn, DashboardControllerInterface::class)) {
+            return $controllerFqcn;
+        } elseif (is_subclass_of($controllerFqcn, CrudControllerInterface::class) and is_subclass_of($controllerFqcn, WithDashboardInterface::class)) {
+            [$controllerFqcn, $action] = explode('::', $controller);
+            $request->query->set(EA::CRUD_CONTROLLER_FQCN, $controllerFqcn);
+            $request->query->set(EA::CRUD_ACTION, $action);
+            return $controllerFqcn::getDashboardControllerFqcn();
+        }
+
+        return null;
     }
 
     private function getDashboardControllerInstance(string $dashboardControllerFqcn, Request $request): ?DashboardControllerInterface
